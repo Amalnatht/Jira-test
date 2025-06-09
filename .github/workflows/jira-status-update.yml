@@ -12,9 +12,20 @@ jobs:
       - name: Extract Jira ticket key from PR title
         id: extract
         run: |
-          echo "PR Title: ${{ github.event.pull_request.title }}"
-          ticket=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+')
-          echo "ticket=$ticket" >> $GITHUB_OUTPUT
+          title="${{ github.event.pull_request.title }}"
+          branch="${{ github.event.pull_request.head.ref }}"
+          echo "Title: $title"
+          echo "Branch: $branch"
+          
+          ticket=$(echo "$title $branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1 || true)
+          
+          if [ -z "$ticket" ]; then
+            echo "No Jira ticket found in PR title or branch name"
+            echo "ticket=" >> $GITHUB_OUTPUT
+          else
+            echo "Found Jira ticket: $ticket"
+            echo "ticket=$ticket" >> $GITHUB_OUTPUT
+          fi
 
       - name: Trigger Jira transition
         run: |
