@@ -1,4 +1,4 @@
-name: Transition Jira Ticket on PR Merge
+name: Transition Jira Ticket on PR Merges
 
 on:
   pull_request:
@@ -8,19 +8,33 @@ jobs:
   transition-jira:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
     steps:
-      - name: Extract Jira ticket key from PR title
+      - name: Extract Jira ticket key from PR title or branch name
         id: extract
         run: |
-          echo "PR Title: ${{ github.event.pull_request.title }}"
-          ticket=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+')
+          title="${{ github.event.pull_request.title }}"
+          branch="${{ github.event.pull_request.head.ref }}"
+          echo "🔍 PR Title: $title"
+          echo "🔍 Branch Name: $branch"
+
+          # Extract first match like ABC-123 from title or branch name
+          ticket=$(echo "$title $branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1 || true)
+
+          echo "✅ Found ticket: $ticket"
           echo "ticket=$ticket" >> $GITHUB_OUTPUT
 
-      - name: Trigger Jira transition
+      - name: Trigger Jira transition (if ticket exists)
+        if: steps.extract.outputs.ticket != ''
         run: |
+          echo "🎯 Transitioning Jira ticket: ${{ steps.extract.outputs.ticket }}"
           curl -X POST \
             -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_TOKEN }}" \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
             --data '{"transition": {"id": "41"}}' \
             "https://spendflo-team-ipj50y3n.atlassian.net/rest/api/3/issue/${{ steps.extract.outputs.ticket }}/transitions"
+
+      - name: No ticket found, skipping transition
+        if: steps.extract.outputs.ticket == ''
+        run: echo "⚠️ No Jira ticket key found in PR title or branch name. Skipping transition."
