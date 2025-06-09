@@ -1,4 +1,4 @@
-name: Transition Jira Ticket on PR Merge
+name: Transition Jira Ticket on PR Merges
 
 on:
   pull_request:
