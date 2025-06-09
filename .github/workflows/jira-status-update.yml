@@ -1,1 +1,36 @@
+name: Jira Status Update on PR Merge
 
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  update-jira:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract JIRA ticket ID from PR title
+        id: extract
+        run: |
+          echo "PR title: ${{ github.event.pull_request.title }}"
+          ticket_id=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+')
+          echo "JIRA_TICKET=$ticket_id" >> $GITHUB_ENV
+
+      - name: Get available transitions for the Jira ticket
+        id: transitions
+        run: |
+          curl -u ${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }} \
+            -X GET \
+            -H "Accept: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ env.JIRA_TICKET }}/transitions" > response.json
+          cat response.json
+
+      - name: Transition Jira Issue to QA
+        run: |
+          # Replace 31 with the actual transition ID for "In QA" in your Jira project
+          curl -u ${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }} \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data '{"transition": {"id": "31"}}' \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ env.JIRA_TICKET }}/transitions"
